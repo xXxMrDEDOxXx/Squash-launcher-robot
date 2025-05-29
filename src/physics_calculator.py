@@ -448,4 +448,7 @@ Expected equality of these values:
 [  FAILED  ] Arena.Advance
 
 
+PartsOrder::PartsOrder(Part part, int price) : part(part), price_per_id(price) {}
+SellOrder::SellOrder(Item item) : item(item) {}
 
+order->process(inventory);
