@@ -374,5 +374,78 @@ std::vector<int> Arena::GetDuelResult() {
     return results;
 }
 
+[ RUN      ] Arena.Advance
+C:\Users\FIBO-1\Documents\Dav\oop8-silver-xXxMrDEDOxXx\test\quiz_test.cpp:70: Failure
+Expected equality of these values:
+  a
+    Which is: { 15, 15, 16 }
+  b
+    Which is: { 16, 16, 16 }
+
+C:\Users\FIBO-1\Documents\Dav\oop8-silver-xXxMrDEDOxXx\test\quiz_test.cpp:70: Failure
+Expected equality of these values:
+  a
+    Which is: { -47, -47, -47 }
+  b
+    Which is: { -56, -56, -56 }
+
+C:\Users\FIBO-1\Documents\Dav\oop8-silver-xXxMrDEDOxXx\test\quiz_test.cpp:70: Failure
+Expected equality of these values:
+  a
+    Which is: { 98, 99, 99 }
+  b
+    Which is: { 116, 117, 117 }
+
+C:\Users\FIBO-1\Documents\Dav\oop8-silver-xXxMrDEDOxXx\test\quiz_test.cpp:70: Failure
+Expected equality of these values:
+  a
+    Which is: { 34, 34, 35 }
+  b
+    Which is: { 37, 37, 37 }
+
+C:\Users\FIBO-1\Documents\Dav\oop8-silver-xXxMrDEDOxXx\test\quiz_test.cpp:70: Failure
+Expected equality of these values:
+  a
+    Which is: { 5, 6, 6 }
+  b
+    Which is: { 6, 6, 6 }
+
+C:\Users\FIBO-1\Documents\Dav\oop8-silver-xXxMrDEDOxXx\test\quiz_test.cpp:70: Failure
+Expected equality of these values:
+  a
+    Which is: { 35, 35, 35 }
+  b
+    Which is: { 37, 37, 38 }
+
+C:\Users\FIBO-1\Documents\Dav\oop8-silver-xXxMrDEDOxXx\test\quiz_test.cpp:70: Failure
+Expected equality of these values:
+  a
+    Which is: { 37, 37, 37 }
+  b
+    Which is: { 38, 38, 38 }
+
+C:\Users\FIBO-1\Documents\Dav\oop8-silver-xXxMrDEDOxXx\test\quiz_test.cpp:70: Failure
+Expected equality of these values:
+  a
+    Which is: { 30, 31, 31 }
+  b
+    Which is: { 33, 33, 33 }
+
+C:\Users\FIBO-1\Documents\Dav\oop8-silver-xXxMrDEDOxXx\test\quiz_test.cpp:70: Failure
+Expected equality of these values:
+  a
+    Which is: { -16, -17, -17 }
+  b
+    Which is: { -17, -17, -17 }
+
+[  FAILED  ] Arena.Advance (3 ms)
+[----------] 3 tests from Arena (3 ms total)
+
+[----------] Global test environment tear-down
+[==========] 3 tests from 1 test suite ran. (3 ms total)
+[  PASSED  ] 2 tests.
+[  FAILED  ] 1 test, listed below:
+[  FAILED  ] Arena.Advance
+
 
 
