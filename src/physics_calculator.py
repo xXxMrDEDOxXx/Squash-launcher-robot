@@ -34,185 +34,344 @@ class PhysicsCalculator:
     # Additional physics calculation methods could be added here, e.g.:
     # def calculate_pressure_drop(self, flow_rate, pipe_length, diameter): ...
     # def needed_pressure_for_volume(self, volume, temperature): ...
-Arena::Arena(Node* team_a, Node* team_b) {
-    Node* a0 = nullptr;
-    Node* a1 = nullptr;
-    Node* a2 = nullptr;
-    Node* cur = team_a;
-    int idx = 0;
-    while(cur) {
-        Node* next = cur->next;
-        if(idx % 3 == 0) {
-            cur->next = a0;
-            a0 = cur;
-        } else if(idx % 3 == 1) {
-            cur->next = a1;
-            a1 = cur;
-        } else {
-            cur->next = a2;
-            a2 = cur;
-        }
-        cur = next;
-        idx++;
-    }
-    lineup_a_[0] = a0;
-    lineup_a_[1] = a1;
-    lineup_a_[2] = a2;
-    Node* b0 = nullptr;
-    Node* b1 = nullptr;
-    Node* b2 = nullptr;
-    cur = team_b;
-    idx = 0;
-    while(cur) {
-        Node* next = cur->next;
-        if(idx % 3 == 0) {
-            cur->next = b0;
-            b0 = cur;
-        } else if(idx % 3 == 1) {
-            cur->next = b1;
-            b1 = cur;
-        } else {
-            cur->next = b2;
-            b2 = cur;
-        }
-        cur = next;
-        idx++;
-    }
-    lineup_b_[0] = b0;
-    lineup_b_[1] = b1;
-    lineup_b_[2] = b2;
-}
-std::vector<int> Arena::GetDuelResult() {
-    std::vector<int> result(3);
-    for(int i = 0; i < 3; i++) {
-        Node* a = lineup_a_[i];
-        Node* b = lineup_b_[i];
-        int survivorsA = 0;
-        int survivorsB = 0;
-        for(Node* tmp = a; tmp; tmp = tmp->next) survivorsA++;
-        for(Node* tmp = b; tmp; tmp = tmp->next) survivorsB++;
-        while(a && b) {
-            int winsA = 0;
-            int winsB = 0;
-            while(a && b && winsA < 2 && winsB < 2) {
-                if(a->value == b->value) {
-                    survivorsA--;
-                    survivorsB--;
-                    a = a->next;
-                    b = b->next;
-                    break;
-                } else if(a->value > b->value) {
-                    a->value -= b->value;
-                    survivorsB--;
-                    b = b->next;
-                    winsA++;
-                    if(winsA == 2) {
-                        a = a->next;
-                        break;
-                    }
-                } else {
-                    b->value -= a->value;
-                    survivorsA--;
-                    a = a->next;
-                    winsB++;
-                    if(winsB == 2) {
-                        b = b->next;
-                        break;
-                    }
-                }
-            }
-        }
-        result[i] = survivorsA - survivorsB;
-    }
-    return result;
-}
-
 
 
 #ifndef INVENTORY_MANAGEMENT_H
 #define INVENTORY_MANAGEMENT_H
 
-#include <vector>
-#include <map>
 #include "base_class.h"
-
-class InventoryManagement;
+#include <vector>
 
 class PartsOrder : public Order {
 private:
     Part part;
     int price_per_id;
 public:
-    PartsOrder(Part part, int price_per_id);
-    void Process(InventoryManagement *inv) override;
+    PartsOrder(Part part, int price);
+    void process(Inventory& inventory) override;
 };
 
-class ItemOrder : public Order {
+class SellOrder : public Order {
 private:
     Item item;
 public:
-    ItemOrder(Item item);
-    void Process(InventoryManagement *inv) override;
+    SellOrder(Item item);
+    void process(Inventory& inventory) override;
 };
 
 class InventoryManagement {
+private:
+    Inventory inventory;
+    std::vector<Order*> orders;
 public:
     InventoryManagement();
+    ~InventoryManagement();
     void PurchaseParts(Part part, int price_per_id);
     void SellItem(Item item);
     void ProcessAll();
-    int funds;
-    std::map<int,int> inventory;
-private:
-    std::vector<Order*> orders;
 };
 
 #endif
 
 
 
+
 #include "inventory_management.h"
 
-PartsOrder::PartsOrder(Part part, int price_per_id) : part(part), price_per_id(price_per_id) {}
+InventoryManagement::InventoryManagement() {
+    inventory.fund = 0;
+}
 
-void PartsOrder::Process(InventoryManagement *inv) {
-    int totalCost = part.quantity * price_per_id;
-    if (inv->funds >= totalCost) {
-        inv->funds -= totalCost;
-        inv->inventory[part.id] += part.quantity;
+InventoryManagement::~InventoryManagement() {
+    for (Order* order : orders) {
+        delete order;
     }
 }
 
-ItemOrder::ItemOrder(Item item) : item(item) {}
+PartsOrder::PartsOrder(Part part, int price) : part(part), price_per_id(price) {}
 
-void ItemOrder::Process(InventoryManagement *inv) {
-    for (const Part &p : item.GetParts()) {
-        if (inv->inventory[p.id] < p.quantity) {
+void PartsOrder::process(Inventory& inventory) {
+    int total_cost = part.count * price_per_id;
+    inventory.fund -= total_cost;
+    bool found = false;
+    for (auto& invPart : inventory.parts) {
+        if (invPart.id == part.id) {
+            invPart.count += part.count;
+            found = true;
+            break;
+        }
+    }
+    if (!found) {
+        inventory.parts.push_back(part);
+    }
+}
+
+SellOrder::SellOrder(Item item) : item(item) {}
+
+void SellOrder::process(Inventory& inventory) {
+    for (const auto& required : item.parts) {
+        bool found = false;
+        for (const auto& invPart : inventory.parts) {
+            if (invPart.id == required.id) {
+                if (invPart.count < required.count) {
+                    return;
+                }
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
             return;
         }
     }
-    for (const Part &p : item.GetParts()) {
-        inv->inventory[p.id] -= p.quantity;
+    for (const auto& required : item.parts) {
+        for (auto& invPart : inventory.parts) {
+            if (invPart.id == required.id) {
+                invPart.count -= required.count;
+                break;
+            }
+        }
     }
-    inv->funds += item.GetPrice();
+    inventory.fund += item.price;
 }
-
-InventoryManagement::InventoryManagement() : funds(0) {}
 
 void InventoryManagement::PurchaseParts(Part part, int price_per_id) {
     orders.push_back(new PartsOrder(part, price_per_id));
 }
 
 void InventoryManagement::SellItem(Item item) {
-    orders.push_back(new ItemOrder(item));
+    orders.push_back(new SellOrder(item));
 }
 
 void InventoryManagement::ProcessAll() {
     for (Order* order : orders) {
-        order->Process(this);
+        order->process(inventory);
         delete order;
     }
     orders.clear();
+}
+
+#include "arena.h"
+#include <vector>
+
+Arena::Arena(Node* team_a, Node* team_b) {
+    Node *a_sub0 = nullptr, *a_sub1 = nullptr, *a_sub2 = nullptr;
+    Node *a_tail0 = nullptr, *a_tail1 = nullptr, *a_tail2 = nullptr;
+    Node* current = team_a;
+    int idx = 0;
+    while (current) {
+        Node* next = current->next;
+        current->next = nullptr;
+        int r = idx % 3;
+        if (r == 0) {
+            if (!a_sub0) {
+                a_sub0 = current;
+                a_tail0 = current;
+            } else {
+                a_tail0->next = current;
+                a_tail0 = current;
+            }
+        } else if (r == 1) {
+            if (!a_sub1) {
+                a_sub1 = current;
+                a_tail1 = current;
+            } else {
+                a_tail1->next = current;
+                a_tail1 = current;
+            }
+        } else {
+            if (!a_sub2) {
+                a_sub2 = current;
+                a_tail2 = current;
+            } else {
+                a_tail2->next = current;
+                a_tail2 = current;
+            }
+        }
+        current = next;
+        idx++;
+    }
+    a_sub0 = reverse(a_sub0);
+    a_sub1 = reverse(a_sub1);
+    a_sub2 = reverse(a_sub2);
+    lineup_a_.clear();
+    lineup_a_.push_back(a_sub0);
+    lineup_a_.push_back(a_sub1);
+    lineup_a_.push_back(a_sub2);
+
+    Node *b_sub0 = nullptr, *b_sub1 = nullptr, *b_sub2 = nullptr;
+    Node *b_tail0 = nullptr, *b_tail1 = nullptr, *b_tail2 = nullptr;
+    current = team_b;
+    idx = 0;
+    while (current) {
+        Node* next = current->next;
+        current->next = nullptr;
+        int r = idx % 3;
+        if (r == 0) {
+            if (!b_sub0) {
+                b_sub0 = current;
+                b_tail0 = current;
+            } else {
+                b_tail0->next = current;
+                b_tail0 = current;
+            }
+        } else if (r == 1) {
+            if (!b_sub1) {
+                b_sub1 = current;
+                b_tail1 = current;
+            } else {
+                b_tail1->next = current;
+                b_tail1 = current;
+            }
+        } else {
+            if (!b_sub2) {
+                b_sub2 = current;
+                b_tail2 = current;
+            } else {
+                b_tail2->next = current;
+                b_tail2 = current;
+            }
+        }
+        current = next;
+        idx++;
+    }
+    b_sub0 = reverse(b_sub0);
+    b_sub1 = reverse(b_sub1);
+    b_sub2 = reverse(b_sub2);
+    lineup_b_.clear();
+    lineup_b_.push_back(b_sub0);
+    lineup_b_.push_back(b_sub1);
+    lineup_b_.push_back(b_sub2);
+}
+
+size_t Arena::length_(Node* head) {
+    size_t len = 0;
+    while (head) {
+        len++;
+        head = head->next;
+    }
+    return len;
+}
+
+Node* Arena::reverse(Node* head) {
+    Node* prev = nullptr;
+    Node* cur = head;
+    while (cur) {
+        Node* nxt = cur->next;
+        cur->next = prev;
+        prev = cur;
+        cur = nxt;
+    }
+    return prev;
+}
+
+std::vector<int> Arena::GetDuelResult() {
+    std::vector<int> results(3);
+    for (int i = 0; i < 3; i++) {
+        Node* a_head = lineup_a_[i];
+        Node* b_head = lineup_b_[i];
+        Node* a_copy = nullptr;
+        Node* b_copy = nullptr;
+        if (a_head) {
+            a_copy = new Node(a_head->value);
+            Node* curNew = a_copy;
+            Node* curOld = a_head->next;
+            while (curOld) {
+                curNew->next = new Node(curOld->value);
+                curNew = curNew->next;
+                curOld = curOld->next;
+            }
+            curNew->next = nullptr;
+        }
+        if (b_head) {
+            b_copy = new Node(b_head->value);
+            Node* curNew = b_copy;
+            Node* curOld = b_head->next;
+            while (curOld) {
+                curNew->next = new Node(curOld->value);
+                curNew = curNew->next;
+                curOld = curOld->next;
+            }
+            curNew->next = nullptr;
+        }
+        Node* curA = a_copy;
+        Node* curB = b_copy;
+        bool stop = false;
+        while (curA && curB && !stop) {
+            Node* A = curA;
+            Node* B = curB;
+            int rA = 0, rB = 0;
+            while (true) {
+                int valA = A->value;
+                int valB = B->value;
+                A->value = valA - valB;
+                B->value = valB - valA;
+                rA++;
+                rB++;
+                if (A->value <= 0 && B->value <= 0) {
+                    curA = A->next;
+                    curB = B->next;
+                    delete A;
+                    delete B;
+                    break;
+                }
+                if (A->value > 0 && B->value <= 0) {
+                    curB = B->next;
+                    delete B;
+                    if (rA < 2 && curB) {
+                        B = curB;
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+                if (B->value > 0 && A->value <= 0) {
+                    curA = A->next;
+                    delete A;
+                    if (rB < 2 && curA) {
+                        A = curA;
+                        continue;
+                    } else {
+                        break;
+                    }
+                }
+                if (A->value > 0 && B->value > 0) {
+                    if (rA < 2 && rB < 2) {
+                        continue;
+                    } else {
+                        stop = true;
+                        break;
+                    }
+                }
+            }
+        }
+        int countA = 0;
+        int countB = 0;
+        Node* temp = curA;
+        while (temp) {
+            countA++;
+            temp = temp->next;
+        }
+        temp = curB;
+        while (temp) {
+            countB++;
+            temp = temp->next;
+        }
+        results[i] = countA - countB;
+        temp = curA;
+        while (temp) {
+            Node* nxt = temp->next;
+            delete temp;
+            temp = nxt;
+        }
+        temp = curB;
+        while (temp) {
+            Node* nxt = temp->next;
+            delete temp;
+            temp = nxt;
+        }
+    }
+    return results;
 }
 
 
