@@ -5,7 +5,7 @@ a = Analysis(
     ['simulation_file.py'],
     pathex=[],
     binaries=[],
-    datas=[('Setup page.jpg', '.'), ('Result page.jpg', '.'), ('History page.jpg', '.')],
+    datas=[('Setup page.jpg', '.'), ('Result page.jpg', '.'), ('History page.jpg', '.'), ('ทดลองเปลี่ยนองศา (3_6_68).xlsx', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
