@@ -3,48 +3,68 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 import math
+import pandas as pd
 
 # Model for simulation logic and experiment data
 class LauncherModel:
     def __init__(self):
         self.experimental_data = self.load_experiment_data()
 
-    # Calculate tilt angle in degrees from (0,0) to (x, y)
-    def tilt_for(self, x, y, robot_y=1.00):
-        # Calculate tilt relative to robot at (0, 1.00)
-        tilt_rad = math.atan2(y - robot_y, x)
+    # Calculate tilt angle in degrees from robot at (robot_x, robot_y) to (x, y)
+    def tilt_for(self, x, y, robot_x=-0.495, robot_y=1.00):
+        tilt_rad = math.atan2(y - robot_y, x - robot_x)
         tilt_deg = math.degrees(tilt_rad)
         return round(tilt_deg, 2)
 
-    # Load experiment data for different angles
+    # Load experiment data: average X, Y for each angle (sheet name)
     def load_experiment_data(self):
-        return {
-            0:   [(0.518842, -0.017451)],
-            5:   [(1.167864, 0.005282)],
-            10:  [(1.115403, 0.003308)],
-            15:  [(1.404197, -0.014163)],
-            20:  [(1.893549, 0.025319)],
-            25:  [(2.100752, -0.048187)],
-            30:  [(2.723394, -0.126275)],
-        }
+        excel_path = 'ทดลองเปลี่ยนองศา (3_6_68).xlsx'
+        all_sheets = pd.read_excel(excel_path, sheet_name=None)
+        data = {}
+        for sheet_name, df in all_sheets.items():
+            try:
+                angle = float(sheet_name)
+            except ValueError:
+                continue  # Skip sheets that are not angles
+
+            # Use mean of all attempts for this angle
+            landing_x = df['แกน X'].mean()
+            landing_y = df['แกน Y'].mean()
+            # If Pressure column exists, use mean, else None
+            pressure = df['Pressure'].mean() if 'Pressure' in df.columns else None
+
+            data[angle] = (landing_x, landing_y, pressure)
+        return data
 
     # Find the nearest experiment data for a given angle
     def get_nearest_experiment(self, angle):
         available_angles = list(self.experimental_data.keys())
         nearest_angle = min(available_angles, key=lambda a: abs(a - angle))
-        return nearest_angle, self.experimental_data[nearest_angle][0]
+        return nearest_angle, self.experimental_data[nearest_angle]
 
-    # Calculate pressure based on experiment or formula
-    def pressure_for(self, distance, height, angle):
-        available_angles = list(self.experimental_data.keys())
-        if any(abs(angle - a) < 1e-2 for a in available_angles):
-            return 2.0  # All experiment data is at 2 bar
-        else:
-            return round(0.05 * distance + 0.1 * height, 2)
+    # Calculate pressure based on projectile motion physics
+    def pressure_for(self, distance, height, angle_deg, g=9.81, k=0.05):
+        theta = math.radians(angle_deg)
+        if angle_deg == 90 or math.isclose(math.cos(theta), 0):
+            return None  # Can't shoot vertically
 
-    # Get landing position from experiment data
+        try:
+            A = math.tan(theta)
+            B = height - distance * A
+            if B <= 0:
+                return None  # Not physically possible
+            v = distance / (math.cos(theta) * math.sqrt((2 * B) / g))
+            if not math.isfinite(v):
+                return None
+        except Exception:
+            return None
+
+        pressure = k * v**2
+        return round(pressure, 2)
+
+    # Get landing position from experiment data (for marker)
     def landing_for(self, angle):
-        nearest_angle, (exp_x, exp_y) = self.get_nearest_experiment(angle)
+        nearest_angle, (exp_x, exp_y, _) = self.get_nearest_experiment(angle)
         return exp_x, exp_y
 
 # Store simulation history
@@ -99,11 +119,11 @@ class LauncherApp(tk.Tk):
     # Run the simulation and update output/history
     def run_simulation(self, inputs):
         x, y, height, angle = inputs['x'], inputs['y'], inputs['height'], inputs['angle']
-        distance = (x**2 + y**2) ** 0.5
-
+        # Calculate distance from robot's X to target X
+        robot_x = -0.495
+        distance = x - robot_x
         pressure = self.model.pressure_for(distance, height, angle)
-        # landing_x, landing_y = self.model.landing_for(angle)  # <-- Remove this line
-        tilt = self.model.tilt_for(x, y, robot_y=1.00)
+        tilt = self.model.tilt_for(x, y, robot_x=robot_x, robot_y=1.00)
 
         # Use user input for marker position
         outputs = {'pressure': pressure, 'tilt': tilt, 'landing': (x, y)}
@@ -165,7 +185,7 @@ class InputPage(tk.Frame):
                 messagebox.showerror("Input Error", "Y must be between 0 and 2.00 meters.")
                 return None
             if not (0 < height <= 2.00):
-                messagebox.showerror("Input Error", "Height must be greater than 0. and less than or equal to 2.00 meters.")
+                messagebox.showerror("Input Error", "Height must be greater than 0 and less than or equal to 2.00 meters.")
                 return None
             if not (0 <= angle <= 90):
                 messagebox.showerror("Input Error", "Angle must be between 0 and 90 degrees.")
@@ -195,8 +215,8 @@ class OutputPage(tk.Frame):
         self.tilt_var = tk.StringVar()
 
         # Read-only entries for pressure and tilt
-        self.pressure_display = tk.Entry(self, textvariable=self.pressure_var, font=("Arial", 14))
-        self.tilt_display = tk.Entry(self, textvariable=self.tilt_var, font=("Arial", 14))
+        self.pressure_display = tk.Entry(self, textvariable=self.pressure_var, font=("Arial", 14), state="readonly")
+        self.tilt_display = tk.Entry(self, textvariable=self.tilt_var, font=("Arial", 14), state="readonly")
         self.canvas.create_window(508, 135, window=self.pressure_display, width=100, height=25)
         self.canvas.create_window(1005, 137, window=self.tilt_display, width=100, height=25)
 
@@ -226,10 +246,10 @@ class OutputPage(tk.Frame):
             self.canvas.delete(self.landing_marker)
 
         # Field dimensions and scaling
-        field_start_x = 300
-        field_start_y = 170
-        field_width_px = 750
-        field_height_px = 428
+        field_start_x = 290
+        field_start_y = 220
+        field_width_px = 815
+        field_height_px = 420
         field_width_m = 4.45
         field_height_m = 2.00
 
